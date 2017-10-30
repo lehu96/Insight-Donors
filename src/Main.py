@@ -35,26 +35,31 @@ def preprocessing(pre_df):
 def process_by_zip(input_df):
     global BY_ZIP
     valid_zip_df = pd.DataFrame(input_df.loc[input_df['ZIP_CODE'].str.len() == 5, :])
+    list_dicts = []
     for row in valid_zip_df.itertuples():
         if row.ZIP_CODE not in SEEN_ZIPS:
             SEEN_ZIPS.add(row.ZIP_CODE)
-        BY_ZIP = BY_ZIP.append(pd.DataFrame({'CMTE_ID': [row.CMTE_ID],
-                                             'ZIP_CODE': [row.ZIP_CODE],
-                                             'RUN_MED': [row.TRANSACTION_AMT],
-                                             'NUM_ZIP_TRANS': [1],
-                                             'TOTAL_ZIP_AMT': [row.TRANSACTION_AMT]}))
+        list_dicts.append({'CMTE_ID': row.CMTE_ID, 
+                             'ZIP_CODE': row.ZIP_CODE,
+                             'RUN_MED': row.TRANSACTION_AMT,
+                             'NUM_ZIP_TRANS': 1,
+                             'TOTAL_ZIP_AMT': row.TRANSACTION_AMT})
+    BY_ZIP = pd.concat([BY_ZIP, pd.DataFrame(list_dicts)])
 
-
+    
 def process_by_date(input_df):
     global BY_DATE
     valid_date_df = pd.DataFrame(input_df.loc[np.invert(input_df['TRANSACTION_AMT'].isnull()), :])
+    list_dicts = []
     for row in valid_date_df.itertuples():
-        BY_DATE = BY_DATE.append(pd.DataFrame({'CMTE_ID': [row.CMTE_ID],
-                                               'TRANSACTION_DT': row.TRANSACTION_DT,
-                                               'MEDIAN': row.TRANSACTION_AMT,
-                                               'NUM_TRANS': 1,
-                                               'TOTAL_AMT': row.TRANSACTION_AMT
-                                               }))
+        list_dicts.append({'CMTE_ID': row.CMTE_ID,
+                           'TRANSACTION_DT': row.TRANSACTION_DT,
+                           'MEDIAN': row.TRANSACTION_AMT,
+                           'NUM_TRANS': 1,
+                           'TOTAL_AMT': row.TRANSACTION_AMT
+                           })
+    BY_DATE = pd.concat([BY_DATE, pd.DataFrame(list_dicts)])
+
 
 def running_med():
     global BY_ZIP
@@ -62,23 +67,28 @@ def running_med():
     BY_ZIP.reset_index(inplace=True, drop=True)
     BY_ZIP['Index'] = BY_ZIP.index
     BY_ZIP.set_index('ZIP_CODE', inplace=True)
+    list_zips = []
     for zips in SEEN_ZIPS:
         cum_num = pd.Series(BY_ZIP.loc[zips, 'NUM_ZIP_TRANS']).expanding().sum().astype(int)
         cum_amt = pd.Series(BY_ZIP.loc[zips, 'TOTAL_ZIP_AMT']).expanding().sum().astype(int)
         run_med = pd.Series(BY_ZIP.loc[zips, 'RUN_MED']).expanding().median().round().astype(int)
-        ind = pd.Series(BY_ZIP.loc[zips, 'Index'])
-        for index, num, amt, med in zip(ind,cum_num,cum_amt,run_med):
-            BY_ZIP.loc[(BY_ZIP['Index'] == index), 'NUM_ZIP_TRANS'] = num
-            BY_ZIP.loc[(BY_ZIP['Index'] == index), 'TOTAL_ZIP_AMT'] = amt
-            BY_ZIP.loc[(BY_ZIP['Index'] == index), 'RUN_MED'] = med
+        indices = pd.Series(BY_ZIP.loc[zips, 'Index'])
+        for index, num, amt, med in zip(indices,cum_num,cum_amt,run_med):
+            list_zips.append({'NUM_ZIP_TRANS': num,
+                              'TOTAL_ZIP_AMT': amt, 
+                              'RUN_MED': med, 
+                              'Indices': index})
+    temp_df = pd.DataFrame(list_zips)
+    temp_df.set_index('Indices', inplace=True)
     BY_ZIP.reset_index(inplace=True)
+    BY_ZIP = BY_ZIP.loc[:, ['ZIP_CODE', 'CMTE_ID']].merge(temp_df, how='outer', left_index=True, right_index=True, sort=True)
+
 
 def date_recip_order():
     global BY_DATE
     BY_DATE = BY_DATE.groupby(['CMTE_ID', 'TRANSACTION_DT']).agg(
         {'MEDIAN': np.median, 'NUM_TRANS': 'count', 'TOTAL_AMT': 'sum'})
     BY_DATE['MEDIAN'] = BY_DATE['MEDIAN'].round().astype(int)
-
     BY_DATE.reset_index(inplace=True)
 
 def post_process_zip():
@@ -88,7 +98,9 @@ def post_process_zip():
 def post_process_date():
     global BY_DATE
     BY_DATE = BY_DATE[['CMTE_ID', 'TRANSACTION_DT', 'MEDIAN', 'NUM_TRANS', 'TOTAL_AMT']]
+    BY_DATE.loc[:,'TRANSACTION_DT'] = BY_DATE.loc[:,'TRANSACTION_DT'].dt.strftime('%m%d%Y')
     BY_DATE.sort_values(['CMTE_ID', 'TRANSACTION_DT'], inplace=True)
+
 
 
 
@@ -96,7 +108,7 @@ def post_process_date():
 if __name__ == '__main__':
     reader = pd.read_csv(sys.argv[1], sep='|', header=None, names=HEADER_NAMES,
                          usecols=['CMTE_ID', 'ZIP_CODE', 'TRANSACTION_DT', 'TRANSACTION_AMT', 'OTHER_ID'],
-                         index_col=False, na_filter = False, chunksize=50)
+                         index_col=False, na_filter = False, chunksize=500, dtype={'ZIP_CODE': object, 'TRANSACTION_DT': object})
 
     for chunk in reader:
         preprocessed_df = preprocessing(chunk)

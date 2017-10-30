@@ -4,5 +4,5 @@
 #
 #python ./src/find_political_donors.py ./input/itcont.txt ./output/medianvals_by_zip.txt ./output/medianvals_by_date.txt
 
-python ./src/Main.py ./input/itcont_2018_20170831_20171103.txt ./output/medianvals_by_zip.txt ./output/medianvals_by_date.txt
+python ./src/Main.py ./input/itcont.txt ./output/medianvals_by_zip.txt ./output/medianvals_by_date.txt
 
