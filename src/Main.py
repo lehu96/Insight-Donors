@@ -108,7 +108,7 @@ def post_process_date():
 if __name__ == '__main__':
     reader = pd.read_csv(sys.argv[1], sep='|', header=None, names=HEADER_NAMES,
                          usecols=['CMTE_ID', 'ZIP_CODE', 'TRANSACTION_DT', 'TRANSACTION_AMT', 'OTHER_ID'],
-                         index_col=False, na_filter = False, chunksize=500, dtype={'ZIP_CODE': object, 'TRANSACTION_DT': object})
+                         index_col=False, na_filter = False, chunksize=100000, dtype={'ZIP_CODE': object, 'TRANSACTION_DT': object})
 
     for chunk in reader:
         preprocessed_df = preprocessing(chunk)
