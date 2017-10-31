@@ -22,9 +22,9 @@ Python libraries required to run this program(pip installed or conda installed):
 - numpy (version 1.13.3)
 - pandas (version 0.21.0)
 - dependencies co-installed: 
- - python-dateutil (2.6.1)
- - pytz (2017.3)
- - six (1.11.0)
+  - python-dateutil (2.6.1)
+  - pytz (2017.3)
+  - six (1.11.0)
 
 
 @Author: Lei(Laney) Huang
