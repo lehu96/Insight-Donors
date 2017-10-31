@@ -4,7 +4,7 @@ division of tasks.
 
 Python version used: 3.6.3
 
-Packages needed: numpy, pandas, sys
+Packages needed: numpy, pandas
 
 
 @author Laney Huang
